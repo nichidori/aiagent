@@ -1,7 +1,7 @@
 import argparse
 import os
 from dotenv import load_dotenv
-from call_function import available_functions
+from call_function import available_functions, call_function
 from google import genai
 from google.genai import types
 from prompts import system_prompt
@@ -44,10 +44,27 @@ def main():
     if args.verbose:
         print(f"Prompt tokens: {prompt_token_count}")
         print(f"Response tokens: {response_token_count}")
-        
+
     if response.function_calls:
+        function_results = []
+        
         for function_call in response.function_calls:
-            print(f"Calling function: {function_call.name}({function_call.args})")
+            function_call_result = call_function(function_call, verbose=args.verbose)
+
+            if not function_call_result.parts or len(function_call_result.parts) == 0:
+                raise RuntimeError("Function call result parts not found")
+
+            if function_call_result.parts[0].function_response is None:
+                raise RuntimeError("Function response not found")
+            
+            if function_call_result.parts[0].function_response.response is None:
+                raise RuntimeError("Function response content not found")
+
+            function_results.append(function_call_result.parts)    
+            
+            if args.verbose:
+                print(f"-> {function_call_result.parts[0].function_response.response}")
+
     else:
         print(response.text)
 
